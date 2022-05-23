@@ -1,19 +1,18 @@
-import {AdEntity} from "../types";
+import {AdEntity, NewAdEntity} from "../types";
 import {ValidationError} from "../utils/error";
+import {pool} from "../utils/db";
+import {FieldPacket} from "mysql2";
 
-interface NewAdEntity extends Omit<AdEntity, 'id'> {
-    id?: string;
-}
+type AdRecordResults = [AdEntity[], FieldPacket[]];
 
 export class AdRecord implements AdEntity {
-    id: string;
-    name: string;
-    description: string;
-    price: number;
-    url: string;
-    lat: number;
-    lon: number;
-
+    public id: string;
+    public name: string;
+    public description: string;
+    public price: number;
+    public url: string;
+    public lat: number;
+    public lon: number;
     constructor(obj: NewAdEntity) {
         if(!obj.name || obj.name.length > 100) {
             throw new ValidationError('Nazwa ogłoszenia nie moze byc pusta ani przekraczać 100 znaków');
@@ -28,7 +27,7 @@ export class AdRecord implements AdEntity {
         }
 
         // @TODO: Check if URL is valid
-        if(!obj.url || obj.url.length) {
+        if(!obj.url || obj.url.length > 100) {
             throw new ValidationError('Link ogłoszenia nie może być pusty ani przekraczać 100 znaków');
         }
 
@@ -36,6 +35,7 @@ export class AdRecord implements AdEntity {
             throw new ValidationError('Nie można zlokalizować ogłoszenia');
         }
 
+        this.id = obj.id;
         this.name = obj.name;
         this.description = obj.description;
         this.price = obj.price;
@@ -43,5 +43,13 @@ export class AdRecord implements AdEntity {
         this.lat = obj.lat;
         this.lon = obj.lon;
 
+    }
+
+    static async getOne(id: string): Promise<AdRecord | null> {
+        const [results] = await pool.execute("SELECT * FROM `ads` WHERE id = :id", {
+            id,
+        }) as AdRecordResults;
+
+        return results.length === 0 ? null : new AdRecord(results[0]);
     }
 }
